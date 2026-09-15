@@ -1,0 +1,43 @@
+:root {
+  /* Superficies. La pagina NO es blanca: el blanco queda reservado para los
+     paneles de contenido, y ese contraste es lo que le da al ojo donde apoyarse. */
+  --ground: #eef1f5;
+  --panel: #ffffff;
+  --surface: #e7ebf1;
+  --surface-hover: #dde3ec;
+  --barra: #151b23;
+  --barra-texto: #aab6c4;
+  --barra-activo: #ffffff;
+
+  /* Texto: bastante mas contrastado que antes. */
+  --ink: #0b0f14;
+  --ink-2: #3d4854;
+  --ink-3: #6b7685;
+
+  --line: #d5dbe3;
+  --line-fuerte: #aeb8c4;
+
+  --acento: #2547e0;
+  --acento-suave: #e8ecfd;
+  --verde: #0e7a3c;
+  --rojo: #c0271b;
+  --ambar: #9a6400;
+
+  /* Color por modulo. Tonos medios: se leen sobre la barra oscura y sobre blanco. */
+  --mod-venta: #4c7cff;
+  --mod-catalogo: #d9901f;
+  --mod-caja: #1fa35c;
+  --mod-comprobantes: #9268d6;
+  --mod-config: #8a95a3;
+
+  --radio: 6px;
+  --fila: 34px;
+  --input: 34px;
+
+  --h-modulos: 48px;
+  --h-seccion: 48px;
+  --h-estado: 28px;
+
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", monospace;
+}

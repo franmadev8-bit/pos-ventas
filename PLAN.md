@@ -3,6 +3,10 @@
 Estado: propuesta de planificación. **No hay código escrito todavía.** Requiere
 aprobación del product owner antes de pasar a implementación.
 
+Documento hermano: **`REGLAS.md`**, el catálogo de reglas de negocio. Este plan
+define *cómo* se construye; `REGLAS.md` define *qué* tiene que cumplir. Su §16
+es el catálogo contra el cual verificar §2. Conviene leerlo antes de aprobarlo.
+
 Base sobre la que se planifica (leída del repo al 2026-09-01):
 
 - `pos-ventas` es el template limpio de Tauri 2 + React 19 + TypeScript 5.8 + Vite 7.
@@ -717,6 +721,25 @@ no las bloqueen, y para dejar claro qué campos de V1 ya las anticipan.
 
 ---
 
+### 2.4 Columnas pendientes de definición
+
+No están en el DDL de arriba porque dependen de una decisión tuya. Las tres
+primeras son las que valen: agregarlas ahora cuesta una línea; después de la
+primera instalación en un comercio, una migración con datos que ya no se pueden
+reconstruir.
+
+| | Cambio | Regla | Por qué |
+|---|---|---|---|
+| 1 | Clave `hora_corte_dia_comercial` en `configuracion` | R-GEN-06 | Un kiosco que cierra a las 2 de la mañana ve las ventas de la madrugada en el día equivocado, y va a decir que el sistema le da mal la plata. |
+| 2 | `venta_linea.precio_lista_centavos` | R-VTA-06 | V1 deja editar el precio a mano. Sin esta columna no hay forma de saber cuánta mercadería salió por debajo del precio de lista. |
+| 3 | `venta_linea.tipo_linea` en lugar del booleano `es_generica` | R-PAG-08 | El redondeo por falta de monedas tiene que ser una línea más, no una columna suelta, o el total deja de ser la suma de las líneas y el IVA no cierra al facturar. En V2 aparece el recargo por cuotas con el mismo problema, y un booleano no da para cuatro casos. |
+| 4 | `venta.motivo` | R-ANU-07 | El contrato `anular()` de §4.5 ya lo recibe y la tabla no lo guarda. |
+| 5 | Mover `recibido_centavos` y `vuelto_centavos` de `venta` a `venta_pago` | R-PAG-04 | Es la D14: a nivel venta no significan nada con pago mixto, y son absurdos en una anulación. |
+| 6 | Dónde guardar el formato de la balanza | R-CAT-05 | Solo si el comercio piloto tiene balanza con etiquetadora. Depende de D3. |
+| 7 | `CHECK` de observación obligatoria cuando la diferencia de arqueo no es cero | R-CAJ-09 | Barato: ya hay otros invariantes de cierre expresados en el esquema. |
+
+---
+
 ## 3. Capas y responsabilidades
 
 Flujo obligatorio, en un solo sentido:
@@ -1338,15 +1361,30 @@ no pierda los datos.
 
 ## 7. Decisiones abiertas
 
-Necesito definición antes de escribir código. Marco con **(bloqueante)** las que
-frenan un corte específico.
+D1–D18 están acá; D19–D29 en `REGLAS.md` §17. Ordenadas por cuándo hacen falta:
 
-**D1 — Redondeo del importe de línea. (bloqueante: corte 0)**
+| Cuándo | Decisiones |
+|---|---|
+| **Antes de la migración `0001`** | §0 acceso a datos · `D1` redondeo de línea · `D4` alícuota por producto · `D15` outbox en V1 · las tres primeras columnas de §2.4 |
+| Antes del corte 2 (venta) | `D2` redondeo del total · `D5` venta sin turno · `D14` recibido y vuelto · `D20` acumular líneas repetidas · `D21` editar precio de línea |
+| Antes del corte 3 | `D3` venta por peso y balanza |
+| Antes del corte 4 | `D6` alcance de la anulación · `D22` por qué medio se devuelve |
+| Cortes 6 a 10 | `D19` día comercial · `D8` importación · `D7` backup · `D11` identidad del instalador |
+| No bloquean | `D9` `D10` `D12` `D13` `D16` `D17` `D18` `D23` |
+| V2 y V3 | `D24` · `D25` a `D29` (facturación) |
+
+Con la primera fila alcanza para escribir la migración `0001` y arrancar. El
+resto lo pregunto cuando llegue.
+
+Detalle de cada una. Marco con **(bloqueante)** las que frenan un corte
+específico.
+
+**D1 — Redondeo del importe de línea. (bloqueante: corte 1)**
 Propuesta: half-up en valor absoluto, redondeo únicamente al calcular el importe
 de cada línea, total como suma exacta de importes ya redondeados. Alternativa:
 banker's rounding. ¿Se confirma half-up?
 
-**D2 — Redondeo del total en efectivo. (bloqueante: corte 4)**
+**D2 — Redondeo del total en efectivo. (bloqueante: corte 2)**
 En Argentina es común redondear el vuelto a $10, $50 o $100 porque no hay
 monedas. ¿V1 redondea el total cuando el pago es en efectivo? Si sí, el esquema
 necesita una columna `redondeo_centavos` en `venta` y hay que decidir a qué
@@ -1355,24 +1393,24 @@ el vuelto sale exacto. **Mi recomendación: no redondear en V1**, mostrar el
 vuelto exacto y dejar que el cajero resuelva. Agregar la columna después es una
 migración con dato por defecto 0, sin riesgo.
 
-**D3 — Venta por peso. (bloqueante: corte 5)**
+**D3 — Venta por peso. (bloqueante: corte 3)**
 Tres preguntas: (a) ¿el cajero ingresa el peso en kg o el importe en pesos?
 (b) ¿hay balanza con etiquetadora que imprime códigos con el peso embebido
 (prefijo 20–29, formato `PPPPP` de peso o importe)? Si sí, necesito el formato
 exacto de la balanza del comercio piloto. (c) ¿precio por kg o por 100 g?
 
-**D4 — Alícuota de IVA por producto. (bloqueante: corte 2)**
+**D4 — Alícuota de IVA por producto. (bloqueante: corte 1)**
 El esquema soporta alícuota por producto. ¿El comerciante la va a cargar, o en
 V1 se fija 21 % global y el campo queda oculto en la UI? Recomiendo lo segundo:
 un kiosquero no sabe qué alícuota tiene un producto, y el campo ya está en la
 base para cuando llegue ARCA.
 
-**D5 — Venta sin turno abierto. (bloqueante: corte 4)**
+**D5 — Venta sin turno abierto. (bloqueante: corte 2)**
 Propuesta: prohibido. Si no hay turno abierto, la pantalla de venta redirige a
 apertura de turno. Es la única forma de que el arqueo cierre. ¿Se acepta, o hay
 que permitir vender y asignar a un turno "implícito"?
 
-**D6 — Anulación. (bloqueante: corte 6)**
+**D6 — Anulación. (bloqueante: corte 4)**
 (a) ¿Solo anulación total, o también parcial por línea? Recomiendo solo total en
 V1: la parcial es una devolución y merece su propio tipo de comprobante.
 (b) Si la venta original es de un turno ya cerrado, ¿se puede anular? Propuesta:
@@ -1382,12 +1420,12 @@ cambie. ¿Se acepta?
 (c) ¿Se pide motivo obligatorio? ¿Se pide PIN? (En V1 hay un solo usuario, así
 que el PIN no agrega nada; en V2 sí.)
 
-**D7 — Backup. (bloqueante: corte 10)**
+**D7 — Backup. (bloqueante: corte 9)**
 (a) ¿Automático al cerrar turno, además del manual? (b) ¿Dónde por defecto:
 `Documentos\POS\backups`, o una carpeta que elija el dueño (pendrive)?
 (c) ¿Cuántos se retienen antes de borrar el más viejo?
 
-**D8 — Formato de importación. (bloqueante: corte 9)**
+**D8 — Formato de importación. (bloqueante: corte 8)**
 Necesito el archivo real que van a usar, o la definición de columnas. Preguntas:
 (a) ¿la clave para decidir crear vs. actualizar es el código de barras o la
 descripción? (b) ¿el precio viene con o sin IVA? (c) ¿viene con separador
@@ -1498,8 +1536,13 @@ resolverlo antes de escribir la migración.
 3. La estructura de carpetas de §1.
 4. Los contratos de repositorio de §4.
 5. El orden de cortes de §6, que arranca directo por el catálogo funcionando.
-6. Las 18 decisiones abiertas de §7. Bloquean el arranque: **D1** (redondeo),
-   **D4** (alícuota por producto), **D14** (recibido/vuelto), **D15** (outbox).
+6. Las decisiones abiertas: D1–D18 de §7 acá, más D19–D29 en `REGLAS.md` §17.
+   Bloquean el arranque: **D1** (redondeo), **D4** (alícuota por producto),
+   **D14** (recibido/vuelto), **D15** (outbox), **D20** (acumulación de líneas).
    Las demás las puedo ir preguntando sobre la marcha.
+7. Las columnas pendientes de §2.4, sobre todo las tres primeras: hora de corte
+   del día comercial, precio de lista en la línea de venta, y `tipo_linea` en
+   lugar de `es_generica`. Las tres van en la migración `0001` y son baratas
+   únicamente ahora.
 
 Con eso aprobado, arranco por el corte 1.

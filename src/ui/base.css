@@ -1,0 +1,534 @@
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html, body, #root { height: 100%; margin: 0; }
+
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+.num { font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--mono); }
+
+:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+:focus:not(:focus-visible) { outline: none; }
+
+.etiqueta {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+/* ===================== estructura ===================== */
+.app { display: flex; flex-direction: column; height: 100%; }
+
+/* Barra superior oscura: el ancla visual de toda la app. */
+.modulos {
+  height: var(--h-modulos);
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0 8px;
+  background: var(--barra);
+  flex: 0 0 auto;
+}
+.modulo {
+  appearance: none;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: 0 14px;
+  font: inherit;
+  color: var(--barra-texto);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.modulo:hover:not(:disabled) { background: rgba(255, 255, 255, 0.07); color: #fff; }
+.modulo[aria-current="page"] { color: var(--barra-activo); font-weight: 600; }
+.modulo:disabled { color: #6b7a89; cursor: not-allowed; }
+.modulo .tecla {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: inherit;
+  opacity: 0.65;
+}
+.modulos .derecha {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  color: var(--barra-texto);
+  font-size: 13px;
+}
+
+/* Cabecera de seccion: blanca, con borde fuerte abajo. */
+.seccion {
+  height: var(--h-seccion);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line-fuerte);
+  flex: 0 0 auto;
+}
+.seccion .barra {
+  width: 4px;
+  height: 24px;
+  border-radius: 2px;
+  background: var(--mod-catalogo);
+}
+.seccion h1 { font-size: 19px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+.seccion .contexto { margin-left: auto; color: var(--ink-2); font-size: 13px; }
+
+/* Solapas dentro de la seccion. */
+.solapa {
+  appearance: none;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font: inherit;
+  color: var(--ink-3);
+  cursor: pointer;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: var(--radio) var(--radio) 0 0;
+}
+.solapa:hover { background: var(--surface); color: var(--ink); }
+.solapa[aria-current="page"] {
+  color: var(--ink);
+  font-weight: 600;
+  border-bottom-color: var(--ink);
+}
+
+.contenido {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.estado {
+  height: var(--h-estado);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 16px;
+  background: var(--surface);
+  border-top: 1px solid var(--line-fuerte);
+  font-size: 12px;
+  color: var(--ink-2);
+  flex: 0 0 auto;
+}
+.estado .derecha { margin-left: auto; }
+
+/* ===================== paneles ===================== */
+/* Cada bloque de contenido es un panel blanco sobre el fondo gris. */
+.herramientas {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radio);
+  padding: 10px 12px;
+}
+.herramientas .buscador { flex: 0 1 360px; min-width: 200px; }
+
+.tabla-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radio);
+}
+
+/* ===================== campos ===================== */
+.entrada {
+  appearance: none;
+  font: inherit;
+  height: var(--input);
+  padding: 0 10px;
+  border: 1px solid var(--line-fuerte);
+  border-radius: var(--radio);
+  background: var(--panel);
+  color: var(--ink);
+  width: 100%;
+}
+.entrada.chica { height: 30px; padding: 0 8px; font-size: 14px; }
+.entrada::placeholder { color: var(--ink-3); }
+
+.campo { display: flex; flex-direction: column; gap: 5px; }
+.campo > input, .campo > select {
+  appearance: none;
+  font: inherit;
+  height: var(--input);
+  padding: 0 10px;
+  border: 1px solid var(--line-fuerte);
+  border-radius: var(--radio);
+  background: var(--panel);
+  color: var(--ink);
+  width: 100%;
+}
+/* En un input el numero va a la izquierda: es por donde se empieza a tipear
+   y asi los digitos no se corren mientras escribis. En las columnas de una
+   tabla siguen alineados a la derecha, que es donde se comparan. */
+.campo > input.num { font-variant-numeric: tabular-nums; }
+.campo > input::placeholder { color: var(--ink-3); }
+.campo .ayuda { font-size: 12px; color: var(--ink-3); }
+.campo .malo { font-size: 12px; color: var(--rojo); }
+
+/* ===================== botones ===================== */
+.btn {
+  appearance: none;
+  font: inherit;
+  height: var(--input);
+  padding: 0 14px;
+  border-radius: var(--radio);
+  border: 1px solid var(--line-fuerte);
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+.btn:hover:not(:disabled) { background: var(--surface); }
+.btn:disabled { color: var(--ink-3); cursor: not-allowed; background: var(--surface); }
+.btn .tecla { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+.btn.primario { background: var(--ink); color: #fff; border-color: var(--ink); }
+.btn.primario:hover:not(:disabled) { background: #000; }
+.btn.primario .tecla { color: rgba(255, 255, 255, 0.6); }
+.btn.primario:disabled { background: var(--surface); color: var(--ink-3); border-color: var(--line-fuerte); }
+.btn.chico { height: 30px; padding: 0 10px; font-size: 13px; gap: 7px; }
+.btn.peligro { color: var(--rojo); border-color: #e4a9a3; }
+.btn.peligro:hover:not(:disabled) { background: #fdf0ee; }
+
+.motivo { font-size: 12px; color: var(--ink-3); }
+
+/* ===================== tabla ===================== */
+table.grilla { width: 100%; border-collapse: collapse; }
+table.grilla thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-align: left;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-2);
+  font-weight: 600;
+  padding: 9px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line-fuerte);
+  white-space: nowrap;
+}
+table.grilla td {
+  padding: 0 12px;
+  height: var(--fila);
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+table.grilla th.der, table.grilla td.der { text-align: right; }
+table.grilla tbody tr:nth-child(even) { background: #fafbfd; }
+table.grilla tbody tr:hover { background: var(--surface-hover); }
+
+/* La fila enfocada ES la seleccionada: un solo concepto, no dos. */
+table.grilla tbody tr.fila-producto { cursor: pointer; }
+table.grilla tbody tr.fila-producto:focus {
+  outline: none;
+  background: var(--acento-suave);
+  box-shadow: inset 3px 0 0 var(--acento);
+}
+/* El boton de la fila esta siempre a la vista: uno escondido no lo encuentra
+   nadie, y este producto lo usa gente que no es tecnica. */
+table.grilla td .btn.chico { font-size: 13px; }
+
+.baja { color: var(--ink-3); text-decoration: line-through; }
+.derivado { color: var(--ink-3); }
+.fuerte { font-weight: 600; }
+
+/* ===================== vacio ===================== */
+.vacio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-height: 220px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radio);
+  color: var(--ink-2);
+  text-align: center;
+  padding: 32px 16px;
+}
+.vacio .pista { font-size: 13px; color: var(--ink-3); }
+
+/* ===================== modal ===================== */
+.fondo-modal {
+  position: fixed; inset: 0;
+  background: rgba(11, 15, 20, 0.45);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  z-index: 10;
+}
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--line-fuerte);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(11, 15, 20, 0.22);
+  max-height: 100%;
+  display: flex; flex-direction: column;
+  min-width: 480px;
+}
+.modal > header {
+  height: 52px;
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 18px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line-fuerte);
+  border-radius: 8px 8px 0 0;
+}
+.modal > header h2 { font-size: 18px; margin: 0; font-weight: 600; }
+.modal > .cuerpo { padding: 18px; overflow: auto; }
+.modal > footer {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 18px;
+  background: var(--surface);
+  border-top: 1px solid var(--line-fuerte);
+  border-radius: 0 0 8px 8px;
+}
+.modal > footer .derecha { margin-left: auto; display: flex; gap: 8px; }
+
+/* ===================== aviso ===================== */
+.aviso {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radio);
+  border: 1px solid transparent;
+  font-size: 14px;
+  flex: 0 0 auto;
+}
+.aviso.ok   { background: #e6f4ec; border-color: #a9d6bd; color: #0b5e2f; }
+.aviso.malo { background: #fdecea; border-color: #eab5ae; color: #972016; }
+.aviso .detalle { font-size: 12px; opacity: 0.8; word-break: break-word; }
+
+/* ===================== formulario ===================== */
+/* Etiqueta a la izquierda alineada a la derecha: todas terminan sobre la misma
+   linea y los campos arrancan sobre otra. El ojo baja por esa canaleta en vez
+   de zigzaguear. */
+.formulario { display: flex; flex-direction: column; gap: 8px; }
+
+.renglon {
+  display: grid;
+  grid-template-columns: 160px auto 1fr;
+  align-items: center;
+  gap: 12px;
+}
+.renglon > label {
+  text-align: right;
+  color: var(--ink-2);
+  font-size: 14px;
+  white-space: nowrap;
+}
+.renglon > .control { display: flex; align-items: center; gap: 8px; }
+.renglon > .anexo {
+  color: var(--ink-3);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* El ancho lo define el dato, no la grilla. */
+.w-codigo  { width: 200px; }
+.w-desc    { width: 380px; }
+.w-cat     { width: 240px; }
+.w-cant    { width: 110px; }
+.w-precio  { width: 140px; }
+
+/* Separador con titulo, al estilo de los formularios de escritorio. */
+.separador {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 4px;
+}
+.separador > span:first-child {
+  text-align: right;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.separador > span:last-child { height: 1px; background: var(--line); }
+
+/* ===================== utilidades ===================== */
+.fila { display: flex; align-items: center; gap: 8px; }
+.columna { display: flex; flex-direction: column; gap: 12px; }
+.rejilla-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.rejilla-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.crece { flex: 1 1 auto; }
+
+/* Los derivados del precio: informacion, no una anotacion. Una sola linea. */
+.derivados {
+  display: flex;
+  gap: 22px;
+  font-size: 13px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.derivados b { font-weight: 600; color: var(--ink); }
+
+/* ===================== arranque / falla de base ===================== */
+/* Sin base no hay POS: esta pantalla ocupa todo y dice el motivo real. */
+.arranque {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ground);
+  color: var(--ink-2);
+  padding: 24px;
+}
+.tarjeta-falla {
+  width: 640px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 24px 28px;
+}
+.tarjeta-falla h1 {
+  margin: 0 0 12px;
+  font-size: 19px;
+  color: var(--rojo);
+}
+.tarjeta-falla p { margin: 0 0 12px; line-height: 1.5; }
+.tarjeta-falla code {
+  font-family: var(--mono);
+  font-size: 13px;
+  background: var(--ground);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.detalle-falla {
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--ground);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 10px 12px;
+  margin: 0 0 14px;
+  color: var(--ink);
+  user-select: text;
+}
+
+/* ===================== pantalla de venta ===================== */
+
+/* El ticket ocupa lo que queda y el total se apoya abajo, siempre a la vista:
+   es el numero que el cajero canta y el cliente mira. */
+.ticket {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ticket > .tabla-scroll { flex: 1; min-height: 0; }
+
+.total-barra {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  background: var(--barra);
+  color: #fff;
+  border-radius: 6px;
+  padding: 10px 18px;
+}
+.total-rotulo { color: var(--barra-texto); font-size: 14px; }
+.total-monto {
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sugerencias de busqueda: caen debajo del buscador y se recorren con flechas. */
+.sugerencias {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.sugerencia {
+  display: grid;
+  grid-template-columns: 1fr 160px 120px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0 14px;
+  height: var(--fila);
+  font: inherit;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.sugerencia + .sugerencia { border-top: 1px solid var(--line); }
+.sugerencia:hover { background: var(--surface); }
+.sugerencia:focus-visible,
+.sugerencia:focus { background: var(--acento-suave); outline: none; box-shadow: inset 3px 0 0 var(--acento); }
+.sug-cat { color: var(--ink-3); font-size: 13px; }
+.sug-precio { text-align: right; font-weight: 500; }
+
+/* Un precio tocado a mano se marca: es una decision del cajero, no del catalogo. */
+.precio-tocado { color: var(--ambar); font-weight: 600; }
+
+/* Cobro */
+.cobro { display: flex; flex-direction: column; gap: 4px; }
+.cobro-fila {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 0;
+}
+.cobro-total { font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cobro-vuelto {
+  border-top: 1px solid var(--line);
+  margin-top: 6px;
+  padding-top: 10px;
+  font-size: 18px;
+  color: var(--ink-2);
+}
+.cobro-vuelto b { font-size: 24px; color: var(--verde); font-variant-numeric: tabular-nums; }

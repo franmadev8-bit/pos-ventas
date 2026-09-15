@@ -1,0 +1,76 @@
+import type { Centavos, IsoUtc, Milesimas, OrigenPrecio, PuntosBasicos, TipoLinea, Unidad, Uuid } from "../../domain/tipos";
+
+/**
+ * Lo que se manda a grabar. Todos los ids los genera el cliente (regla 1) y el
+ * de la venta es ademas la clave de idempotencia (regla 13): reintentar con el
+ * mismo id no duplica nada.
+ */
+export interface LineaAGrabar {
+  readonly id: Uuid;
+  readonly orden: number;
+  readonly tipoLinea: TipoLinea;
+  readonly productoId: Uuid | null;
+  readonly descripcion: string;
+  readonly unidad: Unidad;
+  readonly cantidadMilesimas: Milesimas;
+  readonly origenPrecio: OrigenPrecio | null;
+  readonly precioUnitarioCentavos: Centavos;
+  readonly precioListaCentavos: Centavos | null;
+  readonly costoUnitarioCentavos: Centavos | null;
+  readonly alicuotaIvaBp: PuntosBasicos;
+  readonly importeCentavos: Centavos;
+  /** Id del movimiento de stock que genera la linea. Null si no mueve stock. */
+  readonly movimientoStockId: Uuid | null;
+}
+
+export interface PagoAGrabar {
+  readonly id: Uuid;
+  readonly orden: number;
+  readonly medioPagoId: Uuid;
+  readonly medioPagoNombre: string;
+  readonly medioPagoTipo: string;
+  readonly afectaArqueo: boolean;
+  readonly montoCentavos: Centavos;
+  readonly recibidoCentavos: Centavos | null;
+  readonly vueltoCentavos: Centavos | null;
+}
+
+export interface VentaAGrabar {
+  readonly id: Uuid;
+  readonly cajaId: Uuid;
+  readonly cajaSesionId: Uuid;
+  readonly usuarioId: Uuid;
+  readonly fecha: IsoUtc;
+  readonly subtotalCentavos: Centavos;
+  readonly descuentoCentavos: Centavos;
+  readonly totalCentavos: Centavos;
+  readonly lineas: readonly LineaAGrabar[];
+  readonly pagos: readonly PagoAGrabar[];
+}
+
+export interface VentaRegistrada {
+  readonly id: Uuid;
+  /** Numero interno del ticket. Nunca se mezcla con el fiscal (regla 7). */
+  readonly ticketNumero: number;
+  readonly fecha: IsoUtc;
+  readonly yaExistia: boolean;
+}
+
+/** Cabecera de una venta ya grabada, para listados. */
+export interface VentaResumen {
+  readonly id: Uuid;
+  readonly ticketNumero: number;
+  readonly fecha: IsoUtc;
+  readonly totalCentavos: Centavos;
+  readonly cantidadLineas: number;
+}
+
+export interface VentaRepository {
+  /**
+   * Graba la venta entera en una transaccion. Es la unica escritura del
+   * sistema que no pasa por el plugin: va por un comando Rust porque toca
+   * cinco tablas y el plugin no expone transacciones.
+   */
+  registrar(venta: VentaAGrabar): Promise<VentaRegistrada>;
+  ultimasDelTurno(cajaSesionId: Uuid, limite: number): Promise<readonly VentaResumen[]>;
+}
