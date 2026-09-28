@@ -1,31 +1,43 @@
 import { useEffect, useRef, useState } from "react";
 import { Aviso } from "../../components/Aviso";
 import { Boton } from "../../components/Boton";
+import { Modal } from "../../components/Modal";
 import type { PagoTicket } from "../../domain/cobro";
 import { formatearCantidad, parsearCantidad } from "../../domain/cantidad";
 import { parsearMonto } from "../../domain/dinero";
+import { separarMultiplicador } from "../../domain/entrada";
 import { mensajeDeError } from "../../domain/errores";
 import { importeLinea } from "../../domain/ticket";
+import { ALICUOTA_IVA_DEFAULT } from "../../domain/tipos";
 import type { Uuid } from "../../domain/tipos";
 import { useAsync } from "../../hooks/useAsync";
-import { useVentaEnCurso } from "../../hooks/useVentaEnCurso";
+import { useTickets } from "../../app/TicketsContext";
+import { MAX_TICKETS } from "../../hooks/useTicketsEnCurso";
 import { formatearCentavos, formatearPesos } from "../../lib/formato";
 import type { Producto } from "../../repositories/contratos/ProductoRepository";
 import { catalogoService, ventaService } from "../../services";
 import { ModalCobro } from "./ModalCobro";
+import { ModalGenerica } from "./ModalGenerica";
+import { ModalTickets } from "./ModalTickets";
 
 type Edicion = { readonly lineaId: Uuid; readonly campo: "cantidad" | "precio" };
 
 const MAX_SUGERENCIAS = 8;
 
 export function PantallaVenta() {
-  const venta = useVentaEnCurso();
+  const venta = useTickets();
   const [texto, setTexto] = useState("");
   const [showCobro, setShowCobro] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showGenerica, setShowGenerica] = useState(false);
+  const [showTickets, setShowTickets] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [edicion, setEdicion] = useState<Edicion | null>(null);
   const [borrador, setBorrador] = useState("");
   const [error, setError] = useState<{ texto: string; detalle?: string } | null>(null);
+  // El error del cobro es suyo: si compartiera estado con la busqueda, el modal
+  // mostraria "no hay ningun producto con..." abajo del boton de Cobrar.
+  const [errorCobro, setErrorCobro] = useState<{ texto: string; detalle?: string } | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
 
   const entrada = useRef<HTMLInputElement>(null);
@@ -36,24 +48,39 @@ export function PantallaVenta() {
   // vea ahora y no con el cliente esperando en el mostrador.
   const contexto = useAsync(() => ventaService.contexto(), [], "No se pudo abrir el turno de caja.");
 
+  // "3*coca" es tres unidades de coca: el multiplicador se separa antes de
+  // buscar, si no el texto del codigo nunca coincidiria con nada.
+  const entradaTipeada = separarMultiplicador(texto);
+  const aBuscar = entradaTipeada.busqueda;
+
   const sugerencias = useAsync(
     () =>
-      texto.trim().length < 2
+      aBuscar.trim().length < 2
         ? Promise.resolve([])
-        : catalogoService.listarProductos({ texto, soloActivos: true, limite: MAX_SUGERENCIAS }),
-    [texto],
+        : catalogoService.listarProductos({ texto: aBuscar, soloActivos: true, limite: MAX_SUGERENCIAS }),
+    [aBuscar],
   );
-  const opciones = texto.trim().length < 2 ? [] : (sugerencias.datos ?? []);
+  const opciones = aBuscar.trim().length < 2 ? [] : (sugerencias.datos ?? []);
 
   // El foco vive en el buscador. Vuelve solo despues de cada accion.
   function volverAlBuscador() {
     entrada.current?.focus();
     entrada.current?.select();
   }
-  useEffect(() => { if (!showCobro && edicion === null) volverAlBuscador(); }, [showCobro, edicion]);
+  useEffect(() => {
+    if (!showCobro && !showConfirmModal && !showGenerica && !showTickets && edicion === null) {
+      volverAlBuscador();
+    }
+  }, [showCobro, showConfirmModal, showGenerica, showTickets, edicion]);
 
-  function sumar(p: Producto) {
-    venta.sumarProducto(p);
+  function sumar(p: Producto, cantidadMilesimas: number | null) {
+    // Media unidad de algo que no se vende por peso no existe. Recien aca se
+    // sabe: el multiplicador se tipea antes de saber que producto es.
+    if (cantidadMilesimas !== null && p.unidad !== "kg" && cantidadMilesimas % 1000 !== 0) {
+      setError({ texto: `«${p.descripcion}» se vende por ${p.unidad}: la cantidad tiene que ser entera.` });
+      return;
+    }
+    venta.sumarProducto(p, cantidadMilesimas ?? 1000);
     setTexto("");
     setError(null);
     volverAlBuscador();
@@ -64,21 +91,21 @@ export function PantallaVenta() {
    * Enter, asi que este es el mismo camino para el lector y para la mano.
    */
   async function alConfirmarBusqueda() {
-    const t = texto.trim();
-    if (t === "") {
-      if (venta.lineas.length > 0) setShowCobro(true);
+    const { busqueda, cantidadMilesimas } = separarMultiplicador(texto);
+    if (busqueda === "") {
+      if (venta.lineas.length > 0) { setErrorCobro(null); setShowCobro(true); }
       return;
     }
     try {
-      const porCodigo = await ventaService.buscarPorCodigo(t);
-      if (porCodigo) { sumar(porCodigo); return; }
+      const porCodigo = await ventaService.buscarPorCodigo(busqueda);
+      if (porCodigo) { sumar(porCodigo, cantidadMilesimas); return; }
     } catch (e) {
       setError(mensajeDeError(e, "No se pudo buscar el producto."));
       return;
     }
     const unica = opciones.length === 1 ? opciones[0] : undefined;
-    if (unica) { sumar(unica); return; }
-    if (opciones.length === 0) setError({ texto: `No hay ningún producto con «${t}».` });
+    if (unica) { sumar(unica, cantidadMilesimas); return; }
+    if (opciones.length === 0) setError({ texto: `No hay ningún producto con «${busqueda}».` });
   }
 
   function abrirEdicion(lineaId: Uuid, campo: Edicion["campo"]) {
@@ -115,6 +142,17 @@ export function PantallaVenta() {
     setEdicion(null);
   }
 
+  /**
+   * Cierra el ticket activo. Si esta vacio se va sin preguntar —es el caso de
+   * haberlo abierto sin querer— y si tiene algo cargado pide confirmacion,
+   * porque eso es tirar trabajo del cajero.
+   */
+  function pedirCerrarTicket() {
+    // Con un solo ticket vacio no hay nada que cerrar.
+    if (venta.lineas.length === 0 && venta.tickets.length === 1) return;
+    setShowConfirmModal(true);
+  }
+
   function moverFoco(desde: number, salto: 1 | -1) {
     const filas = cuerpo.current?.querySelectorAll<HTMLTableRowElement>("tr");
     if (!filas || filas.length === 0) return;
@@ -124,32 +162,88 @@ export function PantallaVenta() {
   async function cobrar(pagos: readonly PagoTicket[]) {
     if (guardando) return;
     setGuardando(true);
-    setError(null);
+    setErrorCobro(null);
     try {
       const r = await ventaService.cobrar(venta.ventaId, venta.lineas, pagos, 0);
       setShowCobro(false);
-      venta.vaciar();
+      venta.cerrarTicket();
       setTexto("");
       setAviso(`Ticket ${r.ticketNumero} cobrado por ${formatearPesos(venta.totales.totalCentavos)}.`);
     } catch (e) {
-      setError(mensajeDeError(e, "No se pudo grabar la venta."));
+      setErrorCobro(mensajeDeError(e, "No se pudo grabar la venta."));
     } finally {
       setGuardando(false);
     }
   }
 
-  // F12 cobra desde cualquier lado de la pantalla.
+  // Atajos de la pantalla. Pocos y siempre visibles en algun boton.
   useEffect(() => {
     function alTeclado(e: KeyboardEvent) {
-      if (showCobro) return;
-      if (e.key === "F12" && venta.lineas.length > 0) { e.preventDefault(); setShowCobro(true); }
+      if (showCobro || showConfirmModal || showGenerica || showTickets) return;
+      if (e.key === "F12" && venta.lineas.length > 0) { e.preventDefault(); setErrorCobro(null); setShowCobro(true); }
+      else if (e.key === "F2") {
+        e.preventDefault();
+        if (!venta.abrirTicket()) {
+          setError({ texto: `No podés tener más de ${MAX_TICKETS} tickets abiertos a la vez.` });
+        } else {
+          setError(null);
+          setTexto("");
+        }
+      } else if (e.key === "F9") {
+        e.preventDefault();
+        setShowGenerica(true);
+      } else if (e.key === "F10") {
+        e.preventDefault();
+        setShowTickets(true);
+      } else if (e.key === "F5" && venta.tickets.length > 1) {
+        e.preventDefault();
+        venta.rotar();
+        setTexto("");
+      } else if (e.key === "Escape" && texto.trim() === "") {
+        // Con texto tipeado, Esc limpia el buscador (lo maneja el input).
+        // Con el buscador vacio, Esc cierra el ticket.
+        e.preventDefault();
+        pedirCerrarTicket();
+      }
     }
     window.addEventListener("keydown", alTeclado);
     return () => window.removeEventListener("keydown", alTeclado);
-  }, [showCobro, venta.lineas.length]);
+  }, [showCobro, showConfirmModal, showGenerica, showTickets, venta, texto]);
 
   return (
     <>
+      {/* Solapas de tickets. Solo aparecen cuando hay mas de uno: con uno solo
+          son ruido en la pantalla que se mira todo el dia. */}
+      {venta.tickets.length > 1 ? (
+        <div className="solapas-ticket">
+          {venta.tickets.map((t, i) => (
+            <span
+              key={t.id}
+              className="solapa-ticket"
+              aria-current={i === venta.indice ? "page" : undefined}
+            >
+              <button type="button" tabIndex={-1} className="solapa-ir" onClick={() => venta.irA(i)}>
+                <span>Ticket {i + 1}</span>
+                <span className="num">
+                  {formatearCentavos(venta.resumen[i]?.totalCentavos ?? 0)}
+                </span>
+              </button>
+              <button
+                type="button"
+                tabIndex={-1}
+                className="solapa-cerrar"
+                title="Cerrar este ticket"
+                aria-label={`Cerrar el ticket ${i + 1}`}
+                onClick={() => { venta.irA(i); pedirCerrarTicket(); }}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+          <span className="derecha pista">F5 cambia · F2 abre otro · Esc cierra</span>
+        </div>
+      ) : null}
+
       <div className="herramientas">
         <input
           ref={entrada}
@@ -170,12 +264,22 @@ export function PantallaVenta() {
           placeholder="Código de barras o descripción…"
           autoComplete="off"
         />
+        <Boton tecla="F9" onClick={() => setShowGenerica(true)}>Monto suelto</Boton>
+        <Boton tecla="F10" onClick={() => setShowTickets(true)}>Tickets</Boton>
+        <Boton
+          tecla="F2"
+          disabled={venta.tickets.length >= MAX_TICKETS}
+          motivo={venta.tickets.length >= MAX_TICKETS ? `máximo ${MAX_TICKETS}` : undefined}
+          onClick={() => { venta.abrirTicket(); setTexto(""); }}
+        >
+          Otro ticket
+        </Boton>
         <Boton
           tecla="F12"
           variante="primario"
           disabled={venta.lineas.length === 0}
           motivo={venta.lineas.length === 0 ? "el ticket está vacío" : undefined}
-          onClick={() => setShowCobro(true)}
+          onClick={() => { setErrorCobro(null); setShowCobro(true); }}
         >
           Cobrar
         </Boton>
@@ -189,7 +293,7 @@ export function PantallaVenta() {
               id={`sug-${i}`}
               type="button"
               className="sugerencia"
-              onClick={() => sumar(p)}
+              onClick={() => sumar(p, entradaTipeada.cantidadMilesimas)}
               onKeyDown={(e) => {
                 if (e.key === "ArrowDown") {
                   e.preventDefault();
@@ -301,13 +405,64 @@ export function PantallaVenta() {
         </div>
       </div>
 
+      {showTickets ? <ModalTickets onCerrar={() => setShowTickets(false)} /> : null}
+
+      {showGenerica ? (
+        <ModalGenerica
+          onCerrar={() => setShowGenerica(false)}
+          onAgregar={(descripcion, importe) => {
+            venta.sumarGenerica(descripcion, importe, ALICUOTA_IVA_DEFAULT);
+            setShowGenerica(false);
+            setError(null);
+          }}
+        />
+      ) : null}
+
+      {showConfirmModal ? (
+        <Modal
+          titulo="Cerrar el ticket"
+          ancho={470}
+          onCerrar={() => setShowConfirmModal(false)}
+          pie={
+            <span className="derecha">
+              <Boton onClick={() => setShowConfirmModal(false)}>Seguir con el ticket</Boton>
+              <Boton
+                variante="peligro"
+                onClick={() => {
+                  venta.cerrarTicket();
+                  setShowConfirmModal(false);
+                  setTexto("");
+                }}
+              >
+                {venta.totales.cantidadLineas === 0 ? "Cerrar" : "Cerrar y perder"}
+              </Boton>
+            </span>
+          }
+        >
+          {venta.totales.cantidadLineas === 0 ? (
+            <p style={{ margin: 0 }}>Este ticket está vacío. ¿Lo cerrás?</p>
+          ) : (
+            <>
+              <p style={{ margin: 0 }}>
+                Este ticket tiene <b>{venta.totales.cantidadLineas}</b>{" "}
+                {venta.totales.cantidadLineas === 1 ? "artículo" : "artículos"} por{" "}
+                <b>{formatearPesos(venta.totales.totalCentavos)}</b>.
+              </p>
+              <p style={{ margin: "8px 0 0", color: "var(--ink-2)" }}>
+                Si lo cerrás se pierde lo cargado. No se graba ninguna venta.
+              </p>
+            </>
+          )}
+        </Modal>
+      ) : null}
+
       {showCobro ? (
         <ModalCobro
           totalCentavos={venta.totales.totalCentavos}
           medios={medios.datos ?? []}
           guardando={guardando}
-          error={error}
-          onCerrar={() => { setShowCobro(false); setError(null); }}
+          error={errorCobro}
+          onCerrar={() => { setShowCobro(false); setErrorCobro(null); }}
           onCobrar={(pagos) => void cobrar(pagos)}
         />
       ) : null}

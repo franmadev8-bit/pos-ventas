@@ -23,10 +23,14 @@ export type TipoCodigo = "ean" | "interno" | "balanza";
 export type RolUsuario = "dueno" | "cajero";
 export type TipoMedioPago =
   | "efectivo"
+  /** Posnet, sin distinguir debito de credito. Es como lo ve el mostrador. */
+  | "tarjeta"
   | "debito"
   | "credito"
   | "transferencia"
   | "qr"
+  /** Fiado. Se modela desde ahora pero no se usa hasta V3. */
+  | "cuenta_corriente"
   | "otro";
 
 /** Alicuotas que admite el esquema, en puntos basicos. */

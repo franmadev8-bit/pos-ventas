@@ -33,6 +33,8 @@ export interface PagoAGrabar {
   readonly montoCentavos: Centavos;
   readonly recibidoCentavos: Centavos | null;
   readonly vueltoCentavos: Centavos | null;
+  /** Numero de autorizacion del POSNET. Opcional siempre. */
+  readonly referencia: string | null;
 }
 
 export interface VentaAGrabar {
@@ -63,6 +65,38 @@ export interface VentaResumen {
   readonly fecha: IsoUtc;
   readonly totalCentavos: Centavos;
   readonly cantidadLineas: number;
+  /** Medios con los que se cobro, para leer la fila de un vistazo. */
+  readonly medios: string;
+  readonly anulada: boolean;
+}
+
+/** Una venta con todo lo que le cuelga. Es lo que hace falta para anularla. */
+export interface VentaDetalle {
+  readonly id: Uuid;
+  readonly ticketNumero: number;
+  readonly fecha: IsoUtc;
+  readonly subtotalCentavos: Centavos;
+  readonly descuentoCentavos: Centavos;
+  readonly totalCentavos: Centavos;
+  readonly anulada: boolean;
+  readonly lineas: readonly LineaAGrabar[];
+  readonly pagos: readonly PagoAGrabar[];
+}
+
+/** El ticket espejo que anula a otro. Todos los montos, en negativo. */
+export interface AnulacionAGrabar {
+  readonly id: Uuid;
+  readonly ventaAnuladaId: Uuid;
+  readonly cajaId: Uuid;
+  readonly cajaSesionId: Uuid;
+  readonly usuarioId: Uuid;
+  readonly fecha: IsoUtc;
+  readonly motivo: string;
+  readonly subtotalCentavos: Centavos;
+  readonly descuentoCentavos: Centavos;
+  readonly totalCentavos: Centavos;
+  readonly lineas: readonly LineaAGrabar[];
+  readonly pagos: readonly PagoAGrabar[];
 }
 
 export interface VentaRepository {
@@ -72,5 +106,11 @@ export interface VentaRepository {
    * cinco tablas y el plugin no expone transacciones.
    */
   registrar(venta: VentaAGrabar): Promise<VentaRegistrada>;
+  /**
+   * Anula con un ticket espejo, tambien en una transaccion. Las ventas no se
+   * editan ni se borran (regla 5): anular es un hecho nuevo, no un borrado.
+   */
+  anular(anulacion: AnulacionAGrabar): Promise<VentaRegistrada>;
   ultimasDelTurno(cajaSesionId: Uuid, limite: number): Promise<readonly VentaResumen[]>;
+  obtenerDetalle(id: Uuid): Promise<VentaDetalle | null>;
 }

@@ -12,7 +12,8 @@ interface Fila {
 }
 
 const TIPOS: readonly string[] = [
-  "efectivo", "debito", "credito", "transferencia", "qr", "otro",
+  "efectivo", "tarjeta", "debito", "credito",
+  "transferencia", "qr", "cuenta_corriente", "otro",
 ];
 
 export function crearMedioPagoRepository(ej: Ejecutor): MedioPagoRepository {

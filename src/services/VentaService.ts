@@ -14,6 +14,7 @@ import type { Turno, TurnoRepository } from "../repositories/contratos/TurnoRepo
 import type {
   LineaAGrabar,
   PagoAGrabar,
+  VentaDetalle,
   VentaRegistrada,
   VentaRepository,
   VentaResumen,
@@ -41,6 +42,12 @@ export interface VentaService {
     descuentoCentavos: Centavos,
   ): Promise<VentaRegistrada>;
   ultimasDelTurno(limite: number): Promise<readonly VentaResumen[]>;
+  detalle(ventaId: Uuid): Promise<VentaDetalle | null>;
+  /**
+   * Anula una venta con su ticket espejo. Devuelve el numero del espejo, que
+   * es un ticket mas de la caja: la numeracion no saltea ni reusa.
+   */
+  anular(ventaId: Uuid, motivo: string): Promise<VentaRegistrada>;
 }
 
 export function crearVentaService(
@@ -139,6 +146,7 @@ export function crearVentaService(
         montoCentavos: p.montoCentavos,
         recibidoCentavos: p.recibidoCentavos,
         vueltoCentavos: p.recibidoCentavos === null ? null : vueltoDePago(p),
+        referencia: p.referencia,
       }));
 
       return ventas.registrar({
@@ -152,6 +160,59 @@ export function crearVentaService(
         totalCentavos: t.totalCentavos,
         lineas: lineasAGrabar,
         pagos: pagosAGrabar,
+      });
+    },
+
+    detalle(ventaId: Uuid) {
+      return ventas.obtenerDetalle(ventaId);
+    },
+
+    async anular(ventaId: Uuid, motivo: string) {
+      if (motivo.trim() === "") {
+        throw new ErrorDeNegocio("motivo_vacio", "Escribí por qué se anula el ticket.");
+      }
+      const original = await ventas.obtenerDetalle(ventaId);
+      if (!original) {
+        throw new ErrorDeNegocio("venta_inexistente", "Ese ticket ya no está.");
+      }
+      if (original.anulada) {
+        throw new ErrorDeNegocio("ya_anulada", "Ese ticket ya fue anulado.");
+      }
+
+      const ctx = await obtenerContexto();
+
+      // El espejo es el original con todos los signos dados vuelta. Los ids
+      // son nuevos: son filas nuevas, no copias de las viejas.
+      const lineas: LineaAGrabar[] = original.lineas.map((l) => ({
+        ...l,
+        id: nuevoId(),
+        cantidadMilesimas: -l.cantidadMilesimas,
+        importeCentavos: -l.importeCentavos,
+        movimientoStockId: l.productoId === null ? null : nuevoId(),
+      }));
+      const pagos: PagoAGrabar[] = original.pagos.map((p) => ({
+        ...p,
+        id: nuevoId(),
+        montoCentavos: -p.montoCentavos,
+        // El espejo no devuelve vuelto: lo que vuelve es la plata del pago.
+        recibidoCentavos: null,
+        vueltoCentavos: null,
+        referencia: null,
+      }));
+
+      return ventas.anular({
+        id: nuevoId(),
+        ventaAnuladaId: original.id,
+        cajaId: ctx.cajaId,
+        cajaSesionId: ctx.turno.id,
+        usuarioId: ctx.usuarioId,
+        fecha: ahoraUtc(),
+        motivo: motivo.trim(),
+        subtotalCentavos: -original.subtotalCentavos,
+        descuentoCentavos: -original.descuentoCentavos,
+        totalCentavos: -original.totalCentavos,
+        lineas,
+        pagos,
       });
     },
 

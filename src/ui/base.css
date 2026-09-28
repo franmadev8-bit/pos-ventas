@@ -532,3 +532,165 @@ table.grilla td .btn.chico { font-size: 13px; }
   color: var(--ink-2);
 }
 .cobro-vuelto b { font-size: 24px; color: var(--verde); font-variant-numeric: tabular-nums; }
+
+/* ===================== tickets en paralelo ===================== */
+/* Solapas al estilo de un POS de mostrador: numero y total, nada mas.
+   El total en la solapa es lo que deja saber cual es cual sin abrirlo. */
+.solapas-ticket {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: -2px;
+}
+.solapa-ticket {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: 5px 5px 0 0;
+  background: var(--surface);
+  color: var(--ink-2);
+  padding: 7px 14px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.solapa-ticket:hover { background: var(--surface-hover); }
+.solapa-ticket[aria-current="page"] {
+  background: var(--panel);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: inset 0 3px 0 var(--mod-venta);
+}
+.solapa-ticket .num { font-variant-numeric: tabular-nums; }
+.solapas-ticket .pista { font-size: 12px; color: var(--ink-3); padding-right: 4px; }
+
+/* ===================== medios de pago ===================== */
+.medios { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; }
+.medio {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  border: 1px solid var(--line-fuerte);
+  border-radius: 5px;
+  background: var(--panel);
+  color: var(--ink-2);
+  padding: 0 12px;
+  height: var(--input);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.medio:hover { background: var(--surface); }
+.medio[aria-pressed="true"] {
+  background: var(--acento-suave);
+  border-color: var(--acento);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Pagos ya cargados en un cobro mixto. */
+.pagos-cargados {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.pago-cargado {
+  display: grid;
+  grid-template-columns: 1fr 120px auto;
+  align-items: center;
+  gap: 12px;
+  padding: 5px 10px 5px 14px;
+  font-size: 14px;
+}
+.pago-cargado + .pago-cargado { border-top: 1px solid var(--line); }
+.pago-cargado .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Lo que falta se lee distinto de lo que vuelve: son decisiones opuestas. */
+.cobro-vuelto b.falta { color: var(--rojo); }
+
+/* La solapa es un contenedor con dos acciones: ir al ticket y cerrarlo.
+   La cruz esta siempre a la vista: una accion escondida en hover no la
+   encuentra alguien que viene de un cuaderno. */
+.solapa-ticket { padding: 0; overflow: hidden; }
+.solapa-ir {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 7px 6px 7px 14px;
+  cursor: pointer;
+}
+.solapa-cerrar {
+  border: 0;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 17px;
+  line-height: 1;
+  padding: 4px 10px 6px 4px;
+  cursor: pointer;
+  align-self: center;
+}
+.solapa-cerrar:hover { color: var(--rojo); }
+
+/* Como se arma un pago mixto. Va fija: es la unica parte del cobro que no se
+   descubre sola, porque hay que escribir menos que el total para dispararla. */
+.pista-cobro {
+  font-size: 12px;
+  color: var(--ink-3);
+  margin: 2px 0 8px;
+}
+
+/* Cobro con varios medios: un renglon por medio, uno debajo del otro. */
+.medios-lista { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 4px; }
+
+/* Marca de que las flechas cambian el medio. Un glifo al final de la fila
+   molesta menos que una linea de texto y dice lo mismo. */
+.medios-teclas {
+  color: var(--ink-3);
+  font-size: 13px;
+  align-self: center;
+  padding-left: 2px;
+  letter-spacing: 1px;
+}
+
+.check-varios {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 2px;
+  font-size: 14px;
+  color: var(--ink-2);
+  cursor: pointer;
+  user-select: none;
+}
+.check-varios input { width: 15px; height: 15px; accent-color: var(--acento); cursor: pointer; }
+
+/* ===================== tickets del turno ===================== */
+.detalle-venta { display: flex; flex-direction: column; }
+.detalle-cabecera {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  gap: 12px;
+  padding-bottom: 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-2);
+}
+.detalle-cabecera b { font-size: 22px; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* Un ticket anulado sigue existiendo y se ve: no se borra ni se esconde. */
+.marca-anulada {
+  color: var(--rojo);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.fila-anulada td { color: var(--ink-3); text-decoration: line-through; }
+.fila-anulada td:nth-child(3) { text-decoration: none; }

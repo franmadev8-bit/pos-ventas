@@ -39,6 +39,8 @@ pub struct PagoEntrada {
     pub monto_centavos: i64,
     pub recibido_centavos: Option<i64>,
     pub vuelto_centavos: Option<i64>,
+    /// Numero de autorizacion del POSNET. Siempre opcional.
+    pub referencia: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -237,8 +239,8 @@ pub async fn registrar_venta<R: Runtime>(
         sqlx::query(
             "INSERT INTO venta_pago (id, venta_id, orden, medio_pago_id, medio_pago_nombre,
                                      medio_pago_tipo, afecta_arqueo, monto_centavos,
-                                     recibido_centavos, vuelto_centavos)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                                     recibido_centavos, vuelto_centavos, referencia)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(p.id.as_str())
         .bind(venta.id.as_str())
@@ -250,6 +252,7 @@ pub async fn registrar_venta<R: Runtime>(
         .bind(p.monto_centavos)
         .bind(p.recibido_centavos)
         .bind(p.vuelto_centavos)
+        .bind(p.referencia.as_deref())
         .execute(&mut *tx)
         .await
         .map_err(|e| e.to_string())?;

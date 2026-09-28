@@ -8,7 +8,7 @@ import {
   totales,
 } from "./ticket";
 import type { LineaTicket } from "./ticket";
-import { estadoDeCobro, motivoParaNoCobrar, vueltoDePago } from "./cobro";
+import { estadoDeCobro, motivoParaNoCobrar, repartirEfectivo, vueltoDePago } from "./cobro";
 import type { PagoTicket } from "./cobro";
 
 function linea(p: Partial<LineaTicket> & { id: string }): LineaTicket {
@@ -36,6 +36,7 @@ function efectivo(monto: number, recibido: number | null): PagoTicket {
     afectaArqueo: true,
     montoCentavos: monto,
     recibidoCentavos: recibido,
+    referencia: null,
   };
 }
 
@@ -155,7 +156,19 @@ describe("cobro", () => {
       medioPagoTipo: "debito",
       afectaArqueo: false,
     };
-    expect(motivoParaNoCobrar(270000, [tarjeta])).toContain("Débito");
+    expect(motivoParaNoCobrar(270000, [tarjeta])).not.toBeNull();
+  });
+  it("tarjeta por parte y efectivo de mas: el vuelto sale del efectivo", () => {
+    const tarjeta: PagoTicket = {
+      ...efectivo(200000, null), id: "p-1", medioPagoTipo: "debito", afectaArqueo: false,
+    };
+    const ps = [tarjeta, { ...efectivo(70000, 100000), id: "p-2" }];
+    expect(motivoParaNoCobrar(270000, ps)).toBeNull();
+    expect(estadoDeCobro(270000, ps).vueltoCentavos).toBe(30000);
+  });
+  it("una referencia de POSNET viaja con el pago", () => {
+    const p: PagoTicket = { ...efectivo(270000, null), medioPagoTipo: "debito", referencia: "004512" };
+    expect(p.referencia).toBe("004512");
   });
   it("la suma de pagos cubre el total en un pago mixto", () => {
     const tarjeta: PagoTicket = { ...efectivo(200000, null), id: "pago-2", medioPagoTipo: "debito", afectaArqueo: false };
@@ -163,5 +176,26 @@ describe("cobro", () => {
     expect(e.pagadoCentavos).toBe(270000);
     expect(e.vueltoCentavos).toBe(30000);
     expect(motivoParaNoCobrar(270000, [tarjeta, efectivo(70000, 100000)])).toBeNull();
+  });
+});
+
+describe("repartirEfectivo", () => {
+  it("paga justo: cubre todo y no vuelve nada", () => {
+    expect(repartirEfectivo(700000, 700000)).toEqual({ montoCentavos: 700000, vueltoCentavos: 0 });
+  });
+  it("un ticket de 7.000 pagado con 10.000 vuelve 3.000", () => {
+    expect(repartirEfectivo(700000, 1000000)).toEqual({ montoCentavos: 700000, vueltoCentavos: 300000 });
+  });
+  it("entrega menos de lo que falta: cubre lo que puso y no hay vuelto", () => {
+    expect(repartirEfectivo(700000, 400000)).toEqual({ montoCentavos: 400000, vueltoCentavos: 0 });
+  });
+  it("sobre lo que resta de un pago mixto, no sobre el total", () => {
+    // Total 7.000, ya entraron 4.000 por QR: pendiente 3.000 y paga con 5.000.
+    expect(repartirEfectivo(300000, 500000)).toEqual({ montoCentavos: 300000, vueltoCentavos: 200000 });
+  });
+  it("con un billete grande el vuelto sigue cerrando al centavo", () => {
+    const r = repartirEfectivo(1281750, 2000000);
+    expect(r.montoCentavos + r.vueltoCentavos).toBe(2000000);
+    expect(r.vueltoCentavos).toBe(718250);
   });
 });

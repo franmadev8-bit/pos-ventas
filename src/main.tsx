@@ -12,6 +12,7 @@ import "./ui/tokens.css";
 import "./ui/base.css";
 import { App } from "./app/App";
 import { PuertaDeBase } from "./app/PuertaDeBase";
+import { TicketsProvider } from "./app/TicketsContext";
 
 const raiz = document.getElementById("root");
 if (!raiz) throw new Error("Falta el elemento #root en index.html");
@@ -19,7 +20,9 @@ if (!raiz) throw new Error("Falta el elemento #root en index.html");
 ReactDOM.createRoot(raiz).render(
   <React.StrictMode>
     <PuertaDeBase>
-      <App />
+      <TicketsProvider>
+        <App />
+      </TicketsProvider>
     </PuertaDeBase>
   </React.StrictMode>,
 );

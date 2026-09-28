@@ -137,8 +137,13 @@ SELECT producto_id, SUM(cantidad_milesimas) AS saldo_milesimas
 CREATE TABLE medio_pago (
   id             TEXT    PRIMARY KEY,
   nombre         TEXT    NOT NULL,
+  -- 'tarjeta' es el medio unico que se usa en el mostrador: al comerciante le
+  -- importa que entro por posnet, no si fue debito o credito. 'debito' y
+  -- 'credito' quedan admitidos para el que quiera separarlos: es una fila mas
+  -- en esta tabla, sin tocar codigo. 'cuenta_corriente' es el fiado de V3.
   tipo           TEXT    NOT NULL CHECK (tipo IN
-                    ('efectivo','debito','credito','transferencia','qr','otro')),
+                    ('efectivo','tarjeta','debito','credito','transferencia',
+                     'qr','cuenta_corriente','otro')),
   afecta_arqueo  INTEGER NOT NULL DEFAULT 0 CHECK (afecta_arqueo IN (0,1)),
   permite_vuelto INTEGER NOT NULL DEFAULT 0 CHECK (permite_vuelto IN (0,1)),
   orden          INTEGER NOT NULL DEFAULT 0,
@@ -302,6 +307,11 @@ CREATE TABLE venta_pago (
   recibido_centavos INTEGER,
   vuelto_centavos   INTEGER,
 
+  -- Número de autorización o cupón que devuelve el POSNET. Sirve para conciliar
+  -- contra la liquidación de la tarjeta y para reclamar un contracargo. Es un
+  -- dato que el cajero copia a mano: siempre opcional, nunca bloquea el cobro.
+  referencia        TEXT,
+
   CHECK ((recibido_centavos IS NULL) = (vuelto_centavos IS NULL)),
   CHECK (recibido_centavos IS NULL
          OR vuelto_centavos = recibido_centavos - monto_centavos)
@@ -397,10 +407,9 @@ INSERT INTO secuencia (nombre, valor) VALUES
 
 INSERT INTO medio_pago (id, nombre, tipo, afecta_arqueo, permite_vuelto, orden, creado_en, actualizado_en) VALUES
   ('00000000-0000-4000-8000-000000000010', 'Efectivo',      'efectivo',      1, 1, 1, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
-  ('00000000-0000-4000-8000-000000000011', 'Debito',        'debito',        0, 0, 2, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
-  ('00000000-0000-4000-8000-000000000012', 'Credito',       'credito',       0, 0, 3, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
-  ('00000000-0000-4000-8000-000000000013', 'Transferencia', 'transferencia', 0, 0, 4, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
-  ('00000000-0000-4000-8000-000000000014', 'QR',            'qr',            0, 0, 5, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');
+  ('00000000-0000-4000-8000-000000000011', 'Tarjeta',       'tarjeta',       0, 0, 2, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
+  ('00000000-0000-4000-8000-000000000013', 'Transferencia', 'transferencia', 0, 0, 3, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
+  ('00000000-0000-4000-8000-000000000014', 'QR',            'qr',            0, 0, 4, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');
 
 INSERT INTO configuracion (clave, valor, actualizado_en) VALUES
   ('caja_actual_id',      '00000000-0000-4000-8000-000000000002', '2026-01-01T00:00:00.000Z'),
